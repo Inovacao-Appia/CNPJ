@@ -12,7 +12,7 @@ st.set_page_config(page_title="Appia Tools", layout="wide")
 
 # --- LOGO NA SIDEBAR (COLOQUE AQUI) ---
 # O local ideal é logo após os imports para que ele seja a primeira coisa a carregar
-st.sidebar.image(r"Logos\Via Appia\PNG\Via Appia Negativo.png", use_container_width=True)
+st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
 
 # --- FUNÇÕES DE CONSULTA CNPJ ---
 def limpa_cnpj(cnpj):
