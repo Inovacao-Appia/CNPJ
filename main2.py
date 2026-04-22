@@ -12,7 +12,7 @@ st.set_page_config(page_title="Appia Tools", layout="wide")
 
 # --- LOGO NA SIDEBAR (COLOQUE AQUI) ---
 # O local ideal é logo após os imports para que ele seja a primeira coisa a carregar
-st.sidebar.image(r"Logos\Via Appia\PNG\Via Appia Negativo.png", use_container_width=True)
+st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
 
 # --- FUNÇÕES DE CONSULTA CNPJ ---
 def limpa_cnpj(cnpj):
@@ -47,6 +47,7 @@ def processar_dados_cnpj(dados):
     res = {
         "CNPJ": dados.get('cnpj'),
         "NOME": dados.get('nome'),
+        "DATA ABERTURA": dados.get('abertura'),
         "CNAE PRIMARIO": formatar_cnae(dados.get('atividade_principal', [{}])[0]),
         "CNAE SECUNDARIO": "\n".join([formatar_cnae(s) for s in dados.get('atividades_secundarias', [])]),
         "CAPITAL SOCIAL": float(dados.get('capital_social', 0)),
@@ -86,20 +87,49 @@ if modo_cnpj:
                 if dados_finais:
                     st.success(f"Dados de {dados_finais['NOME']}")
                     
-                    # Dashboard Simples
+                    # 1. Informações Principais (Métricas)
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Situação", dados_finais["SITUACAO CADASTRAL"])
                     c2.metric("Capital Social", f"R$ {dados_finais['CAPITAL SOCIAL']:,.2f}")
-                    c3.write(f"**Email:** {dados_finais['EMAIL']}")
+                    c3.metric("Data de Abertura", dados_finais["DATA ABERTURA"])
+
+                    st.divider()
+
+                    # 2. Detalhes de Contato e Localização
+                    col_info1, col_info2 = st.columns(2)
+                    with col_info1:
+                        st.markdown(f"**📧 Email:** {dados_finais['EMAIL'] if dados_finais['EMAIL'] else 'Não informado'}")
+                        st.markdown(f"**📍 Endereço:** {dados_finais['ENDEREÇO']}")
+                    with col_info2:
+                        st.markdown(f"**📅 Data da Situação:** {dados_finais['DATA SITUACAO CADASTRADA']}")
+                        st.markdown(f"**🆔 CNPJ:** {dados_finais['CNPJ']}")
+
+                    st.divider()
+
+                    # 3. Atividades (CNAEs)
+                    st.subheader("Atividades Econômicas")
+                    st.info(f"**Primária:** {dados_finais['CNAE PRIMARIO']}")
+                    with st.expander("Ver Atividades Secundárias"):
+                        if dados_finais['CNAE SECUNDARIO']:
+                            st.text(dados_finais['CNAE SECUNDARIO'])
+                        else:
+                            st.write("Sem atividades secundárias registradas.")
+
+                    st.divider()
+
+                    # 4. Quadro de Sócios (QSA)
+                    st.subheader("Quadro de Sócios e Administradores")
+                    socios = [dados_finais[f"SOCIO {i}"] for i in range(1, 11) if dados_finais[f"SOCIO {i}"]]
                     
-                    st.write("**CNAE Primário:**", dados_finais["CNAE PRIMARIO"])
-                    st.write("**Endereço:**", dados_finais["ENDEREÇO"])
-                    
-                    with st.expander("Ver Quadro de Sócios"):
-                        socios = [dados_finais[f"SOCIO {i}"] for i in range(1, 11) if dados_finais[f"SOCIO {i}"]]
-                        st.write(", ".join(socios))
+                    if socios:
+                        # Exibe os sócios em uma lista bonita
+                        for i, socio in enumerate(socios, 1):
+                            st.write(f"{i}. {socio}")
+                    else:
+                        st.write("Informação de sócios não disponível.")
+
                 else:
-                    st.error(resultado.get('message', "Erro desconhecido"))
+                    st.error(resultado.get('message', "Erro desconhecido ou CNPJ não encontrado."))
             else:
                 st.warning("CNPJ Inválido. Deve conter 14 dígitos.")
 
