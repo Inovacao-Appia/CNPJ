@@ -6,6 +6,7 @@ import pandas as pd
 from io import BytesIO
 
 from utils.nf import extrair_texto_pdf, analisar_nf
+from utils.logger import registrar_nf
 
 st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
 
@@ -28,8 +29,10 @@ def processar_pdfs(caminhos: list[tuple[str, str]]) -> pd.DataFrame:
                 dados = analisar_nf(texto)
                 dados["arquivo"] = nome
                 resultados.append(dados)
+                registrar_nf(nome, dados, status="sucesso")
             except Exception as e:
                 st.warning(f"Erro em {nome}: {e}")
+                registrar_nf(nome, {}, status="erro", erro=str(e))
         progress.progress((i + 1) / total)
 
     return pd.DataFrame(resultados)

@@ -4,8 +4,18 @@ import os
 import streamlit as st
 from openai import OpenAI
 
-_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=_api_key)
+PROMPT_NF = """Você é um especialista financeiro e assistente de extração de dados.
+Sua tarefa é extrair informações da Nota Fiscal e retornar EXCLUSIVAMENTE um objeto JSON válido.
+Chaves obrigatórias: numero_nota, data_emissao, nome_prestador, valor_bruto, valor_liquido, descricao_servico, vencimento_boleto, numero_pedido"""
+
+
+def _get_client():
+    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        st.error("Chave OPENAI_API_KEY não configurada. Adicione em Settings → Secrets no Streamlit Cloud.")
+        st.stop()
+    return OpenAI(api_key=api_key)
+
 
 def extrair_texto_pdf(path):
     texto = ""
@@ -17,12 +27,8 @@ def extrair_texto_pdf(path):
     return texto
 
 
-PROMPT_NF = """Você é um especialista financeiro e assistente de extração de dados.
-Sua tarefa é extrair informações da Nota Fiscal e retornar EXCLUSIVAMENTE um objeto JSON válido.
-Chaves obrigatórias: numero_nota, data_emissao, nome_prestador, valor_bruto, valor_liquido, descricao_servico, vencimento_boleto, numero_pedido"""
-
-
 def analisar_nf(texto):
+    client = _get_client()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         response_format={"type": "json_object"},
