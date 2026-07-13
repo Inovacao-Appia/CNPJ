@@ -1,6 +1,8 @@
 import streamlit as st
 from supabase import create_client
 
+from utils.contratos import COLUMNS
+
 
 def _get_client():
     url = st.secrets.get("SUPABASE_URL")
@@ -35,6 +37,34 @@ def buscar_logs() -> list[dict]:
         return []
     try:
         resp = client.table("logs_nf").select("*").order("timestamp", desc=True).execute()
+        return resp.data
+    except Exception:
+        return []
+
+
+def registrar_contrato(nome_grupo: str, arquivos: list[str], dados: dict, status: str = "sucesso", erro: str = None):
+    client = _get_client()
+    if not client:
+        return
+    try:
+        registro = {chave: dados.get(chave) for chave, _rotulo in COLUMNS}
+        registro.update({
+            "arquivo": nome_grupo,
+            "arquivos_origem": ", ".join(arquivos),
+            "status": status,
+            "erro": erro,
+        })
+        client.table("logs_contratos").insert(registro).execute()
+    except Exception as e:
+        st.warning(f"Falha ao registrar log: {e}")
+
+
+def buscar_logs_contratos() -> list[dict]:
+    client = _get_client()
+    if not client:
+        return []
+    try:
+        resp = client.table("logs_contratos").select("*").order("timestamp", desc=True).execute()
         return resp.data
     except Exception:
         return []
