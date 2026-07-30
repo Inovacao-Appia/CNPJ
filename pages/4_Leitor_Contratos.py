@@ -1,15 +1,18 @@
 import os
 import tempfile
+import time
 import zipfile
 
 import pandas as pd
 import streamlit as st
 
 from utils.contratos import (
+    CATEGORIA_SERVICO,
+    CATEGORIAS,
     COLUMNS,
-    agrupar_arquivos_zip,
-    analisar_contrato,
+    analisar_documento,
     gerar_excel_formatado,
+    listar_pdfs_zip,
 )
 from utils.logger import registrar_contrato
 
@@ -17,31 +20,52 @@ st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_wid
 
 st.title("📑 Leitor de Contratos com IA")
 
+categoria = st.radio(
+    "Categoria dos documentos deste lote",
+    options=list(CATEGORIAS.keys()),
+    format_func=lambda chave: CATEGORIAS[chave],
+    index=list(CATEGORIAS.keys()).index(CATEGORIA_SERVICO),
+    horizontal=True,
+    help=(
+        "Define qual prompt de vigências (2.1 ou 2.2) será usado. Todos os "
+        "documentos enviados de uma vez devem ser da mesma categoria."
+    ),
+)
+
 tab_individual, tab_lote = st.tabs(["📄 Contrato Individual", "📦 Lote (ZIP)"])
 
 COLUNA_ARQUIVOS = "ARQUIVO(S) DE ORIGEM"
 
+# Pausa entre o processamento de cada PDF, para não sobrecarregar a API/memória.
+_DELAY_ENTRE_DOCUMENTOS_SEGUNDOS = 3
 
-def processar_grupos(grupos: list[tuple[str, list[tuple[str, str]]]]) -> pd.DataFrame:
-    """Recebe lista de (nome_do_contrato, [(rótulo, caminho), ...]) e retorna
-    DataFrame com uma linha por contrato analisado."""
+
+def processar_documentos(documentos: list[tuple[str, str]], categoria: str) -> pd.DataFrame:
+    """Recebe lista de (rótulo, caminho) — um PDF por contrato/aditivo — e processa
+    CADA arquivo isoladamente (lê o PDF, roda os 3 prompts só sobre ele, grava a
+    linha), um por vez, com uma pausa entre cada um. categoria define qual prompt
+    de vigências (2.1 ou 2.2) é usado para todo o lote."""
     resultados = []
     progress = st.progress(0)
-    total = len(grupos)
+    total = len(documentos)
 
-    for i, (nome, documentos) in enumerate(grupos):
-        nomes_arquivos = [os.path.basename(caminho) for _rotulo, caminho in documentos]
-        st.write(f"Processando {i + 1}/{total}: {nome} ({', '.join(nomes_arquivos)})")
-        try:
-            dados = analisar_contrato(documentos)
-            linha = {rotulo: dados.get(chave) for chave, rotulo in COLUMNS}
-            linha[COLUNA_ARQUIVOS] = ", ".join(nomes_arquivos)
-            resultados.append(linha)
-            registrar_contrato(nome, nomes_arquivos, dados, status="sucesso")
-        except Exception as e:
-            st.warning(f"Erro em {nome}: {e}")
-            registrar_contrato(nome, nomes_arquivos, {}, status="erro", erro=str(e))
+    for i, (rotulo, caminho) in enumerate(documentos):
+        nome_arquivo = os.path.basename(caminho)
+        with st.status(f"[{i + 1}/{total}] {nome_arquivo}", expanded=True) as status:
+            try:
+                dados = analisar_documento(rotulo, caminho, categoria, on_progress=status.write)
+                linha = {rotulo_coluna: dados.get(chave) for chave, rotulo_coluna in COLUMNS}
+                linha[COLUNA_ARQUIVOS] = nome_arquivo
+                resultados.append(linha)
+                registrar_contrato(rotulo, [nome_arquivo], dados, status="sucesso")
+                status.update(label=f"[{i + 1}/{total}] {nome_arquivo} — concluído", state="complete")
+            except Exception as e:
+                registrar_contrato(rotulo, [nome_arquivo], {}, status="erro", erro=str(e))
+                status.update(label=f"[{i + 1}/{total}] {nome_arquivo} — erro: {e}", state="error")
         progress.progress((i + 1) / total)
+
+        if i < total - 1:
+            time.sleep(_DELAY_ENTRE_DOCUMENTOS_SEGUNDOS)
 
     return pd.DataFrame(resultados)
 
@@ -68,18 +92,18 @@ def exibir_resultado(df: pd.DataFrame):
 # =============================
 with tab_individual:
     st.info(
-        "Selecione todos os PDFs referentes ao MESMO contrato "
-        "(contrato principal, Ordem de Serviço, aditivos, DocuSign etc.). "
-        "Eles serão analisados juntos como um único contrato."
+        "Selecione um ou mais PDFs. Cada PDF é tratado como um contrato "
+        "independente: é lido e analisado sozinho, um por vez, gerando sua "
+        "própria linha na planilha."
     )
     uploaded_pdfs = st.file_uploader(
-        "Selecione os PDFs do contrato",
+        "Selecione os PDFs",
         type=["pdf"],
         accept_multiple_files=True,
         key="contrato_individual",
     )
 
-    if uploaded_pdfs and st.button("🚀 Analisar Contrato"):
+    if uploaded_pdfs and st.button("🚀 Analisar Contrato(s)"):
         with tempfile.TemporaryDirectory() as tmpdir:
             documentos = []
             for pdf in uploaded_pdfs:
@@ -88,8 +112,7 @@ with tab_individual:
                     f.write(pdf.read())
                 documentos.append((os.path.splitext(pdf.name)[0], caminho))
 
-            nome_grupo = os.path.splitext(uploaded_pdfs[0].name)[0]
-            df = processar_grupos([(nome_grupo, documentos)])
+            df = processar_documentos(documentos, categoria)
             exibir_resultado(df)
 
 # =============================
@@ -97,9 +120,9 @@ with tab_individual:
 # =============================
 with tab_lote:
     st.info(
-        "Suba um arquivo `.zip` com vários contratos. Cada subpasta é tratada como "
-        "um único contrato (todos os PDFs dentro dela são analisados juntos); "
-        "PDFs soltos na raiz do ZIP são tratados cada um como um contrato próprio."
+        "Suba um arquivo `.zip` com vários PDFs, em qualquer estrutura de pastas. "
+        "Cada PDF encontrado é tratado como um contrato independente e "
+        "processado um por vez."
     )
     uploaded_zip = st.file_uploader("Selecione o ZIP", type=["zip"], key="lote_zip")
 
@@ -114,11 +137,11 @@ with tab_lote:
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(extract_dir)
 
-            grupos = agrupar_arquivos_zip(extract_dir)
+            documentos = listar_pdfs_zip(extract_dir)
 
-            if not grupos:
+            if not documentos:
                 st.error("Nenhum PDF encontrado dentro do ZIP.")
             else:
-                st.write(f"{len(grupos)} contrato(s) identificado(s) no ZIP.")
-                df = processar_grupos(grupos)
+                st.write(f"{len(documentos)} PDF(s) identificado(s) no ZIP.")
+                df = processar_documentos(documentos, categoria)
                 exibir_resultado(df)
