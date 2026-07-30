@@ -9,7 +9,6 @@ from utils.contratos import (
     COLUMNS,
     agrupar_arquivos_zip,
     analisar_contrato,
-    extrair_texto_documentos,
     gerar_excel_formatado,
 )
 from utils.logger import registrar_contrato
@@ -34,8 +33,7 @@ def processar_grupos(grupos: list[tuple[str, list[tuple[str, str]]]]) -> pd.Data
         nomes_arquivos = [os.path.basename(caminho) for _rotulo, caminho in documentos]
         st.write(f"Processando {i + 1}/{total}: {nome} ({', '.join(nomes_arquivos)})")
         try:
-            texto = extrair_texto_documentos(documentos)
-            dados = analisar_contrato(texto)
+            dados = analisar_contrato(documentos)
             linha = {rotulo: dados.get(chave) for chave, rotulo in COLUMNS}
             linha[COLUNA_ARQUIVOS] = ", ".join(nomes_arquivos)
             resultados.append(linha)

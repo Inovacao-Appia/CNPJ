@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"c:\\\\Users\\\\joao.guimaraes\\\\OneDrive - VIA APPIA CONCESSOES S.A\\\\�rea de Trabalho\\\\automacao\\\\CNPJ\\\\.venv\\\\Scripts\\\\pip.exe\" install supabase)",
+      "PowerShell(& \"c:\\\\Users\\\\joao.guimaraes\\\\OneDrive - VIA APPIA CONCESSOES S.A\\\\�rea de Trabalho\\\\automacao\\\\CNPJ\\\\.venv\\\\Scripts\\\\python.exe\" -m pip install supabase 2>&1)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(git checkout *)"
+    ]
+  }
+}
