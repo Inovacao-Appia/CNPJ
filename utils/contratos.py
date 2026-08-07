@@ -9,6 +9,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from utils.config import cfg
+
 # Cada prompt extrai um subconjunto de campos (pedir todos os campos de uma vez numa
 # só chamada fazia o modelo confundir/misturar informações). Os prompts abaixo
 # espelham os documentos "PROMPT 1", "PROMPT 2.1/2.2" e "PROMPT 3":
@@ -272,7 +274,7 @@ Responda EXCLUSIVAMENTE com um objeto JSON contendo exatamente estas chaves: {_J
 
 
 def _get_client():
-    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    api_key = cfg("OPENAI_API_KEY")
     if not api_key:
         st.error("Chave OPENAI_API_KEY não configurada. Adicione em Settings → Secrets no Streamlit Cloud.")
         st.stop()

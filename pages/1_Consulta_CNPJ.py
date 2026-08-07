@@ -5,8 +5,12 @@ from io import BytesIO
 from datetime import datetime
 
 from utils.cnpj import limpa_cnpj, consultar_cnpj, processar_dados_cnpj
+from utils.auth import logout_button, require_login
+
+require_login()
 
 st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+logout_button()
 
 st.title("🔍 Consulta CNPJ")
 

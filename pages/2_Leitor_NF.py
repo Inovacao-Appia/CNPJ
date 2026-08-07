@@ -1,5 +1,4 @@
 import streamlit as st
-import zipfile
 import os
 import tempfile
 import pandas as pd
@@ -7,8 +6,13 @@ from io import BytesIO
 
 from utils.nf import extrair_texto_pdf, analisar_nf
 from utils.logger import registrar_nf
+from utils.auth import logout_button, require_login
+from utils.zipsafe import extrair_zip_seguro
+
+require_login()
 
 st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+logout_button()
 
 st.title("📄 Leitor de Notas Fiscais com IA")
 
@@ -65,8 +69,11 @@ with tab_zip:
             with open(zip_path, "wb") as f:
                 f.write(uploaded_zip.read())
 
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(tmpdir)
+            try:
+                extrair_zip_seguro(zip_path, tmpdir)
+            except ValueError as e:
+                st.error(f"ZIP inválido: {e}")
+                st.stop()
 
             caminhos = []
             for root, _, files in os.walk(tmpdir):

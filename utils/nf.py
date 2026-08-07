@@ -1,8 +1,9 @@
 import pdfplumber
 import json
-import os
 import streamlit as st
 from openai import OpenAI
+
+from utils.config import cfg
 
 PROMPT_NF = """Você é um especialista financeiro e assistente de extração de dados.
 Sua tarefa é extrair informações da Nota Fiscal e retornar EXCLUSIVAMENTE um objeto JSON válido.
@@ -10,7 +11,7 @@ Chaves obrigatórias: numero_nota, data_emissao, nome_prestador, valor_bruto, va
 
 
 def _get_client():
-    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    api_key = cfg("OPENAI_API_KEY")
     if not api_key:
         st.error("Chave OPENAI_API_KEY não configurada. Adicione em Settings → Secrets no Streamlit Cloud.")
         st.stop()

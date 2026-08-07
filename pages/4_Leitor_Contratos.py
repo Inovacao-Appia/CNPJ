@@ -1,7 +1,6 @@
 import os
 import tempfile
 import time
-import zipfile
 
 import pandas as pd
 import streamlit as st
@@ -15,8 +14,13 @@ from utils.contratos import (
     listar_pdfs_zip,
 )
 from utils.logger import registrar_contrato
+from utils.auth import logout_button, require_login
+from utils.zipsafe import extrair_zip_seguro
+
+require_login()
 
 st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+logout_button()
 
 st.title("📑 Leitor de Contratos com IA")
 
@@ -134,8 +138,11 @@ with tab_lote:
 
             extract_dir = os.path.join(tmpdir, "extraido")
             os.makedirs(extract_dir, exist_ok=True)
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
+            try:
+                extrair_zip_seguro(zip_path, extract_dir)
+            except ValueError as e:
+                st.error(f"ZIP inválido: {e}")
+                st.stop()
 
             documentos = listar_pdfs_zip(extract_dir)
 

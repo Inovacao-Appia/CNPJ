@@ -1,7 +1,8 @@
-streamlit
-pandas
-openpyxl
-requests
-pdfplumber
-openai
-supabase
+streamlit>=1.38,<2
+pandas>=2.2,<3
+openpyxl>=3.1,<4
+requests>=2.32,<3
+pdfplumber>=0.11,<1
+openai>=1.40,<2
+psycopg2-binary>=2.9,<3
+msal>=1.31,<2

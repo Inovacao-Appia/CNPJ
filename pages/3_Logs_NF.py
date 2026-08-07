@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
 from utils.logger import buscar_logs
+from utils.auth import logout_button, require_login
+
+require_login()
 
 st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+logout_button()
 
 st.title("📊 Logs de Notas Fiscais")
 

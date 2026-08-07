@@ -1,0 +1,12 @@
+[server]
+headless = true
+address = "0.0.0.0"
+port = 8501
+enableCORS = true
+enableXsrfProtection = true
+sslCertFile = "/app/.streamlit/cert.pem"
+sslKeyFile = "/app/.streamlit/key.pem"
+maxUploadSize = 100
+
+[browser]
+gatherUsageStats = false
