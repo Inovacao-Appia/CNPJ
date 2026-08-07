@@ -6,7 +6,7 @@ st.set_page_config(page_title="Appia Tools", layout="wide")
 
 require_login()
 
-st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+st.logo("Logos/Via Appia/PNG/Via Appia Negativo.png", size="large")
 logout_button()
 
 st.title("Appia Tools")

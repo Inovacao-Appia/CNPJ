@@ -11,7 +11,7 @@ from utils.zipsafe import extrair_zip_seguro
 
 require_login()
 
-st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+st.logo("Logos/Via Appia/PNG/Via Appia Negativo.png", size="large")
 logout_button()
 
 st.title("📄 Leitor de Notas Fiscais com IA")

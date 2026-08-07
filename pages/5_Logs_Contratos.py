@@ -5,7 +5,7 @@ from utils.auth import logout_button, require_login
 
 require_login()
 
-st.sidebar.image("Logos/Via Appia/PNG/Via Appia Negativo.png", use_container_width=True)
+st.logo("Logos/Via Appia/PNG/Via Appia Negativo.png", size="large")
 logout_button()
 
 st.title("📊 Logs de Contratos")
