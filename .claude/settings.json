@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(:)",
+      "Bash(sudo lsof -i :2002)",
+      "Bash(docker network *)",
+      "Bash(awk '{print $4}')",
+      "Bash(grep -oE '[0-9]+$')",
+      "Bash(python3 -c \"import streamlit\")",
+      "Bash(pip show *)",
+      "Bash(grep -rE \"FRONTEND_URL|VITE_API_URL|REDIRECT_URI|viaappia\" /home/n8n/CEDOC/backend/.env* /home/n8n/CEDOC/frontend/.env* /home/n8n/CockpitCIO/*/.env* 2>/dev/null; echo \"---\"; cat /etc/hostname 2>/dev/null; echo \"---nginx conf---\"; find /home/n8n -iname \"nginx.conf\" -o -iname \"*.conf\" 2>/dev/null | grep -i nginx | head -5)",
+      "Read(//etc/**)",
+      "Bash(python3 -m py_compile Home.py main.py main2.py pages/*.py utils/*.py)",
+      "Bash(docker build *)",
+      "Bash(docker run *)",
+      "Bash(curl -sk -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://localhost:18501/)",
+      "Bash(curl -sk https://localhost:18501/)",
+      "Bash(docker rm *)",
+      "Bash(docker rmi *)",
+      "Bash(python3 -m py_compile utils/logger.py)",
+      "Bash(curl -sk -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://localhost:2023/)",
+      "Bash(python3 -m py_compile utils/*.py Home.py pages/*.py)",
+      "Bash(sudo ufw status)",
+      "Bash(iptables -L -n)",
+      "Bash(curl -sk -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://127.0.0.1:2023/)",
+      "Bash(curl -sk -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://10.254.255.178:2023/)",
+      "Bash(curl -sk -D - -o /dev/null https://127.0.0.1:2023/)",
+      "Bash(python3 -m py_compile utils/auth.py)",
+      "Bash(git check-ignore *)",
+      "Bash(python3 -c ' *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git config *)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)"
+    ]
+  }
+}
