@@ -4,8 +4,6 @@ address = "0.0.0.0"
 port = 8501
 enableCORS = true
 enableXsrfProtection = true
-sslCertFile = "/app/certs/cert.pem"
-sslKeyFile = "/app/certs/key.pem"
 maxUploadSize = 100
 
 [browser]
