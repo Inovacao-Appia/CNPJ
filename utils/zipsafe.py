@@ -18,3 +18,12 @@ def extrair_zip_seguro(zip_path: str, dest_dir: str) -> None:
             if destino != dest_real and not destino.startswith(dest_real + os.sep):
                 raise ValueError(f"Entrada suspeita no ZIP ignorada: {member.filename}")
             zip_ref.extract(member, dest_dir)
+
+
+def extrair_upload_zip_seguro(uploaded_file, dest_dir: str) -> None:
+    """Grava o arquivo recebido de um st.file_uploader em dest_dir e extrai com
+    extrair_zip_seguro. Lança ValueError se o ZIP for inválido (mesmas checagens)."""
+    zip_path = os.path.join(dest_dir, "_upload.zip")
+    with open(zip_path, "wb") as f:
+        f.write(uploaded_file.read())
+    extrair_zip_seguro(zip_path, dest_dir)

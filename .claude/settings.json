@@ -11,7 +11,6 @@
       "Bash(pip show *)",
       "Bash(grep -rE \"FRONTEND_URL|VITE_API_URL|REDIRECT_URI|viaappia\" /home/n8n/CEDOC/backend/.env* /home/n8n/CEDOC/frontend/.env* /home/n8n/CockpitCIO/*/.env* 2>/dev/null; echo \"---\"; cat /etc/hostname 2>/dev/null; echo \"---nginx conf---\"; find /home/n8n -iname \"nginx.conf\" -o -iname \"*.conf\" 2>/dev/null | grep -i nginx | head -5)",
       "Read(//etc/**)",
-      "Bash(python3 -m py_compile Home.py main.py main2.py pages/*.py utils/*.py)",
       "Bash(docker build *)",
       "Bash(docker run *)",
       "Bash(curl -sk -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://localhost:18501/)",
@@ -59,7 +58,12 @@
       "Bash(python3)",
       "Bash(python3 -m py_compile utils/*.py pages/*.py Home.py)",
       "Bash(mkdir -p /home/n8n/.claude/skills/entra-login)",
-      "Edit(~/.claude/skills/entra-login/**)"
+      "Edit(~/.claude/skills/entra-login/**)",
+      "Bash(mkdir -p /home/n8n/.claude/skills/boas-praticas)",
+      "Edit(~/.claude/skills/boas-praticas/**)",
+      "Bash(grep -E '\\\\.env$|\\\\.pem$|secrets')",
+      "Bash(python3 -)",
+      "Bash(git rm *)"
     ],
     "additionalDirectories": [
       "/home/n8n/.claude/skills"

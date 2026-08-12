@@ -10,12 +10,12 @@ from utils.contratos import (
     CATEGORIAS,
     COLUMNS,
     analisar_documento,
-    gerar_excel_formatado,
     listar_pdfs_zip,
 )
+from utils.contratos_excel import gerar_excel_formatado
 from utils.logger import registrar_contrato
 from utils.auth import logout_button, require_login
-from utils.zipsafe import extrair_zip_seguro
+from utils.zipsafe import extrair_upload_zip_seguro
 from utils.config import FAVICON_PATH
 
 st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
@@ -135,19 +135,13 @@ with tab_lote:
 
     if uploaded_zip and st.button("🚀 Processar Lote"):
         with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = os.path.join(tmpdir, "arquivo.zip")
-            with open(zip_path, "wb") as f:
-                f.write(uploaded_zip.read())
-
-            extract_dir = os.path.join(tmpdir, "extraido")
-            os.makedirs(extract_dir, exist_ok=True)
             try:
-                extrair_zip_seguro(zip_path, extract_dir)
+                extrair_upload_zip_seguro(uploaded_zip, tmpdir)
             except ValueError as e:
                 st.error(f"ZIP inválido: {e}")
                 st.stop()
 
-            documentos = listar_pdfs_zip(extract_dir)
+            documentos = listar_pdfs_zip(tmpdir)
 
             if not documentos:
                 st.error("Nenhum PDF encontrado dentro do ZIP.")

@@ -1,3 +1,4 @@
+import pandas as pd
 import psycopg2.extras
 import streamlit as st
 from psycopg2 import sql
@@ -47,6 +48,30 @@ def buscar_logs() -> list[dict]:
         return []
     finally:
         conn.close()
+
+
+def exibir_dashboard_logs(logs: list[dict], label_total: str) -> None:
+    """Renderiza a tabela de logs + métricas de total/sucesso/erro, usada pelas
+    páginas de Logs de NF e de Contratos (mesma visualização, entidades diferentes).
+    label_total é o texto completo da métrica de total, ex.: "Total de NFs analisadas"."""
+    if not logs:
+        st.info("Nenhum log registrado ainda.")
+        return
+
+    df = pd.DataFrame(logs)
+    df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.tz_convert("America/Sao_Paulo").dt.strftime("%d/%m/%Y %H:%M")
+
+    total = len(df)
+    sucesso = (df["status"] == "sucesso").sum()
+    erro = (df["status"] == "erro").sum()
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric(label_total, total)
+    col2.metric("Com sucesso", sucesso)
+    col3.metric("Com erro", erro)
+
+    st.divider()
+    st.dataframe(df.drop(columns=["id"], errors="ignore"), use_container_width=True)
 
 
 def registrar_contrato(nome_grupo: str, arquivos: list[str], dados: dict, status: str = "sucesso", erro: str = None):

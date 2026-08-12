@@ -7,7 +7,7 @@ from io import BytesIO
 from utils.nf import extrair_texto_pdf, analisar_nf
 from utils.logger import registrar_nf
 from utils.auth import logout_button, require_login
-from utils.zipsafe import extrair_zip_seguro
+from utils.zipsafe import extrair_upload_zip_seguro
 from utils.config import FAVICON_PATH
 
 st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
@@ -68,12 +68,8 @@ with tab_zip:
 
     if uploaded_zip and st.button("🚀 Processar ZIP"):
         with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = os.path.join(tmpdir, "arquivo.zip")
-            with open(zip_path, "wb") as f:
-                f.write(uploaded_zip.read())
-
             try:
-                extrair_zip_seguro(zip_path, tmpdir)
+                extrair_upload_zip_seguro(uploaded_zip, tmpdir)
             except ValueError as e:
                 st.error(f"ZIP inválido: {e}")
                 st.stop()
