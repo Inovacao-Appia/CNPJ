@@ -9,8 +9,11 @@ services:
     env_file: .env
     environment:
       - DATABASE_URL=postgresql://appia:${POSTGRES_PASSWORD}@db:5432/appia_tools
+      - APP_IP=${APP_IP:-10.254.255.178}
     ports:
       - "2023:8501"
+    volumes:
+      - appia_tools_certs:/app/certs
     depends_on:
       db:
         condition: service_healthy
@@ -34,3 +37,4 @@ services:
 
 volumes:
   appia_tools_pgdata:
+  appia_tools_certs:

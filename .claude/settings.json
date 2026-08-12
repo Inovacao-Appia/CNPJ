@@ -33,7 +33,17 @@
       "Bash(git push *)",
       "Bash(git config *)",
       "Bash(gh --version)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(systemctl is-enabled *)",
+      "Bash(python3 -c \"from PIL import Image; im = Image.open\\('Via Appia Positivo.png'\\); print\\(im.size, im.mode\\)\")",
+      "Bash(python3 -c \"import playwright\")",
+      "Bash(npx --version)",
+      "Bash(node /home/n8n/.claude/plugins/cache/impeccable/impeccable/4.0.3/skills/impeccable/scripts/context.mjs)",
+      "Bash(node /home/n8n/.claude/plugins/cache/impeccable/impeccable/4.0.3/skills/impeccable/scripts/detect.mjs --json --scope layout /home/n8n/CNPJ/CNPJ/utils/auth.py)",
+      "Bash(python3 -m py_compile Home.py pages/*.py utils/*.py)",
+      "Bash(docker stats *)",
+      "Bash(dmesg)",
+      "Bash(journalctl -k --since \"2 hours ago\")"
     ]
   }
 }
