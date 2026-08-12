@@ -2,16 +2,11 @@ import pandas as pd
 import streamlit as st
 
 from utils.access import excluir_usuario, listar_usuarios, salvar_usuario
-from utils.auth import logout_button, require_login
-from utils.config import FAVICON_PATH
+from utils.auth import require_login
 from utils.graph import buscar_usuarios_entra
-
-st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
+from utils.paginas import PAGINAS
 
 require_login()
-
-st.logo("Logos/Via Appia/PNG/Via Appia Negativo.png", size="large")
-logout_button()
 
 st.title("🔐 Administração")
 
@@ -26,23 +21,38 @@ tab_cadastrados, tab_entra = st.tabs(["Usuários Cadastrados", "Importar do Entr
 # =============================
 with tab_cadastrados:
     st.write("Usuários com acesso à plataforma. Só quem está listado aqui (e ativo) consegue logar.")
+    st.caption(
+        "Marque as caixas \"Vê ...\" pra decidir quais páginas aparecem no menu de cada usuário "
+        "(matriz de acesso). \"Administração\" não entra aqui: é liberada só pelo Papel = admin."
+    )
 
     busca = st.text_input("Buscar por email ou nome", key="busca_usuarios")
     usuarios = listar_usuarios(busca)
 
-    df = pd.DataFrame(usuarios, columns=["email", "nome", "role", "ativo", "criado_em"])
-    if "criado_em" in df.columns:
-        df = df.drop(columns=["criado_em"])
+    colunas_paginas = [p["key"] for p in PAGINAS]
+    linhas = []
+    for u in usuarios:
+        bloqueadas = set(u.get("paginas_bloqueadas") or [])
+        linha = {"email": u["email"], "nome": u["nome"], "role": u["role"], "ativo": u["ativo"]}
+        linha.update({p["key"]: p["key"] not in bloqueadas for p in PAGINAS})
+        linhas.append(linha)
 
-    st.caption("Edite direto na tabela (papel, ativo) ou adicione uma linha nova com o email. Clique em Salvar para aplicar.")
+    df = pd.DataFrame(linhas, columns=["email", "nome", "role", "ativo"] + colunas_paginas)
+
+    column_config = {
+        "email": st.column_config.TextColumn("Email", required=True),
+        "nome": st.column_config.TextColumn("Nome"),
+        "role": st.column_config.SelectboxColumn("Papel", options=["admin", "usuario"], required=True),
+        "ativo": st.column_config.CheckboxColumn("Ativo", default=True),
+    }
+    column_config.update(
+        {p["key"]: st.column_config.CheckboxColumn(f"Vê {p['title']}", default=True) for p in PAGINAS}
+    )
+
+    st.caption("Edite direto na tabela ou adicione uma linha nova com o email. Clique em Salvar para aplicar.")
     editado = st.data_editor(
         df,
-        column_config={
-            "email": st.column_config.TextColumn("Email", required=True),
-            "nome": st.column_config.TextColumn("Nome"),
-            "role": st.column_config.SelectboxColumn("Papel", options=["admin", "usuario"], required=True),
-            "ativo": st.column_config.CheckboxColumn("Ativo", default=True),
-        },
+        column_config=column_config,
         num_rows="dynamic",
         use_container_width=True,
         key="editor_usuarios",
@@ -59,11 +69,13 @@ with tab_cadastrados:
             email = str(linha.get("email") or "").strip()
             if not email:
                 continue
+            paginas_bloqueadas = [chave for chave in colunas_paginas if not bool(linha.get(chave, True))]
             salvar_usuario(
                 email=email,
                 nome=linha.get("nome") or "",
                 role=linha.get("role") or "usuario",
                 ativo=bool(linha.get("ativo", True)),
+                paginas_bloqueadas=paginas_bloqueadas,
             )
 
         st.success("Alterações salvas.")

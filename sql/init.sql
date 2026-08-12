@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nome TEXT,
     role TEXT NOT NULL DEFAULT 'usuario' CHECK (role IN ('admin', 'usuario')),
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Chaves de utils/paginas.PAGINAS que este usuário NÃO pode ver no menu (matriz de
+    -- acesso). Vazio = vê todas. Não cobre "administracao": essa é só por role=admin.
+    paginas_bloqueadas TEXT[] NOT NULL DEFAULT '{}',
     criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

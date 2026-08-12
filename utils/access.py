@@ -39,7 +39,7 @@ def listar_usuarios(busca: str = "") -> list[dict]:
         conn.close()
 
 
-def salvar_usuario(email: str, nome: str, role: str, ativo: bool):
+def salvar_usuario(email: str, nome: str, role: str, ativo: bool, paginas_bloqueadas: list[str] = ()):
     conn = get_db_conn()
     if not conn:
         return
@@ -47,12 +47,13 @@ def salvar_usuario(email: str, nome: str, role: str, ativo: bool):
         with conn, conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO usuarios (email, nome, role, ativo)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO usuarios (email, nome, role, ativo, paginas_bloqueadas)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (email) DO UPDATE
-                    SET nome = EXCLUDED.nome, role = EXCLUDED.role, ativo = EXCLUDED.ativo
+                    SET nome = EXCLUDED.nome, role = EXCLUDED.role, ativo = EXCLUDED.ativo,
+                        paginas_bloqueadas = EXCLUDED.paginas_bloqueadas
                 """,
-                (email.strip().lower(), nome, role, ativo),
+                (email.strip().lower(), nome, role, ativo, list(paginas_bloqueadas)),
             )
     except Exception as e:
         st.warning(f"Falha ao salvar usuário {email}: {e}")

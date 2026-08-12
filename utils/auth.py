@@ -151,6 +151,7 @@ def require_login():
                     "name": claims.get("name") or usuario.get("nome"),
                     "email": email,
                     "role": usuario["role"],
+                    "paginas_bloqueadas": usuario.get("paginas_bloqueadas") or [],
                 }
                 st.rerun()
             _tela_acesso_negado(email)

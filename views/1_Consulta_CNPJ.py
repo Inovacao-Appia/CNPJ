@@ -5,15 +5,9 @@ from io import BytesIO
 from datetime import datetime
 
 from utils.cnpj import limpa_cnpj, consultar_cnpj, processar_dados_cnpj
-from utils.auth import logout_button, require_login
-from utils.config import FAVICON_PATH
-
-st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
+from utils.auth import require_login
 
 require_login()
-
-st.logo("Logos/Via Appia/PNG/Via Appia Negativo.png", size="large")
-logout_button()
 
 st.title("🔍 Consulta CNPJ")
 
