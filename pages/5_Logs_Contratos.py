@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 from utils.logger import buscar_logs_contratos
 from utils.auth import logout_button, require_login
+from utils.config import FAVICON_PATH
+
+st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
 
 require_login()
 

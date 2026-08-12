@@ -1,6 +1,9 @@
 import os
 
+import psycopg2
 import streamlit as st
+
+FAVICON_PATH = "Logos/Via Appia/PNG/favicon.png"
 
 
 def cfg(key: str):
@@ -15,3 +18,10 @@ def cfg(key: str):
         return st.secrets.get(key)
     except Exception:
         return None
+
+
+def get_db_conn():
+    dsn = cfg("DATABASE_URL")
+    if not dsn:
+        return None
+    return psycopg2.connect(dsn)

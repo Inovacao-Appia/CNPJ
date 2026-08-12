@@ -16,6 +16,9 @@ from utils.contratos import (
 from utils.logger import registrar_contrato
 from utils.auth import logout_button, require_login
 from utils.zipsafe import extrair_zip_seguro
+from utils.config import FAVICON_PATH
+
+st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
 
 require_login()
 

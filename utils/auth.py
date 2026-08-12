@@ -4,6 +4,7 @@ from pathlib import Path
 import msal
 import streamlit as st
 
+from utils.access import buscar_usuario
 from utils.config import cfg
 
 _SCOPES = ["User.Read"]
@@ -91,7 +92,7 @@ def _logo_base64() -> str:
     return base64.b64encode(_LOGO_PATH.read_bytes()).decode()
 
 
-def _build_msal_app():
+def build_msal_app():
     return msal.ConfidentialClientApplication(
         client_id=cfg("AZURE_CLIENT_ID"),
         client_credential=cfg("AZURE_CLIENT_SECRET"),
@@ -104,10 +105,32 @@ def _redirect_uri() -> str:
 
 
 def _exchange_code(code: str):
-    result = _build_msal_app().acquire_token_by_authorization_code(
+    result = build_msal_app().acquire_token_by_authorization_code(
         code, scopes=_SCOPES, redirect_uri=_redirect_uri()
     )
     return result.get("id_token_claims")
+
+
+def _tela_acesso_negado(email: str):
+    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="login-wrap">
+          <div class="login-card">
+            <div class="login-logo">
+              <img src="data:image/png;base64,{_logo_base64()}" alt="Via Appia" />
+            </div>
+            <h1>Acesso não liberado</h1>
+            <p class="login-subtitle">{email}</p>
+            <div class="login-info">
+              <span>🚫</span>
+              <span>Sua conta ainda não tem acesso a esta ferramenta. Peça a um administrador para liberar seu email.</span>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def require_login():
@@ -121,11 +144,17 @@ def require_login():
         claims = _exchange_code(code)
         st.query_params.clear()
         if claims:
-            st.session_state["user"] = {
-                "name": claims.get("name"),
-                "email": claims.get("preferred_username") or claims.get("email"),
-            }
-            st.rerun()
+            email = claims.get("preferred_username") or claims.get("email")
+            usuario = buscar_usuario(email)
+            if usuario and usuario["ativo"]:
+                st.session_state["user"] = {
+                    "name": claims.get("name") or usuario.get("nome"),
+                    "email": email,
+                    "role": usuario["role"],
+                }
+                st.rerun()
+            _tela_acesso_negado(email)
+            st.stop()
         st.error("Falha ao autenticar com a Microsoft. Tente novamente.")
         st.stop()
 
@@ -136,7 +165,7 @@ def require_login():
     # link com um "code" de UMA CONTA MICROSOFT DO ATACANTE, o que logaria a vítima
     # como o atacante — não vaza dados da vítima). Upgrade: cookie assinado
     # (ex.: extra-streamlit-components) guardando o state esperado, se isso importar.
-    auth_url = _build_msal_app().get_authorization_request_url(
+    auth_url = build_msal_app().get_authorization_request_url(
         _SCOPES, redirect_uri=_redirect_uri()
     )
 

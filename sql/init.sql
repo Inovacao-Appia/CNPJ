@@ -47,3 +47,17 @@ CREATE TABLE IF NOT EXISTS logs_contratos (
     status TEXT,
     erro TEXT
 );
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    email TEXT PRIMARY KEY,
+    nome TEXT,
+    role TEXT NOT NULL DEFAULT 'usuario' CHECK (role IN ('admin', 'usuario')),
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Bootstrap: sem isso, ninguém consegue entrar pra cadastrar os demais pela tela de administração.
+INSERT INTO usuarios (email, nome, role) VALUES
+    ('leonardo.silva@viaappia.com.br', 'Leonardo Silva', 'admin'),
+    ('joao.guimaraes@viaappia.com.br', 'João Guimarães', 'admin')
+ON CONFLICT (email) DO NOTHING;

@@ -1,8 +1,9 @@
 import streamlit as st
 
 from utils.auth import logout_button, require_login
+from utils.config import FAVICON_PATH
 
-st.set_page_config(page_title="Appia Tools", layout="wide")
+st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
 
 require_login()
 

@@ -1,17 +1,9 @@
-import psycopg2
 import psycopg2.extras
 import streamlit as st
 from psycopg2 import sql
 
-from utils.config import cfg
+from utils.config import get_db_conn as _get_conn
 from utils.contratos import COLUMNS
-
-
-def _get_conn():
-    dsn = cfg("DATABASE_URL")
-    if not dsn:
-        return None
-    return psycopg2.connect(dsn)
 
 
 def registrar_nf(arquivo: str, dados: dict, status: str = "sucesso", erro: str = None):
