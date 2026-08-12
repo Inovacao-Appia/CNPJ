@@ -1,11 +1,28 @@
+import base64
 import json
 import os
+from concurrent.futures import ProcessPoolExecutor
+from io import BytesIO
 
 import pdfplumber
 import streamlit as st
 from openai import OpenAI
 
 from utils.config import cfg
+
+# Extração de PDF é CPU-bound (pdfminer puro Python) e roda numa das threads de sessão
+# do próprio processo do Streamlit; num contrato grande, isso prende o GIL e trava as
+# outras sessões/usuários. Rodar num processo separado libera o GIL do processo
+# principal enquanto o PDF é lido. max_workers baixo: é só pra não competir com a
+# CPU da app principal se vários usuários lerem contratos grandes ao mesmo tempo.
+_executor = None
+
+
+def _get_executor() -> ProcessPoolExecutor:
+    global _executor
+    if _executor is None:
+        _executor = ProcessPoolExecutor(max_workers=2)
+    return _executor
 
 # Cada prompt extrai um subconjunto de campos (pedir todos os campos de uma vez numa
 # só chamada fazia o modelo confundir/misturar informações). Os prompts abaixo
@@ -277,27 +294,69 @@ def _get_client():
     return OpenAI(api_key=api_key)
 
 
-def extrair_texto_documentos(arquivos: list[tuple[str, str]]) -> str:
-    """Recebe lista de (rótulo_do_documento, caminho_pdf) e retorna o texto combinado,
-    com marcadores de documento e página para permitir citação correta da origem."""
+# gpt-4o tem 128k de contexto — um contrato de ~300 páginas já passou disso na prática
+# (144k tokens, erro context_length_exceeded). gpt-4.1 tem 1M+ de contexto, mesma API
+# (texto + imagem), então resolve sem precisar quebrar o documento em pedaços.
+_MODELO_EXTRACAO = "gpt-4.1"
+
+# Limite de contexto do modelo (entrada + saída); usado só como referência pro aviso
+# abaixo, não é um limite imposto pelo código — não há truncamento em nenhum lugar.
+_LIMITE_CONTEXTO_MODELO_TOKENS = 1_047_576
+_CHARS_POR_TOKEN_APROX = 4
+
+
+_RESOLUCAO_IMAGEM_PAGINA = 150  # DPI: legível pro modelo sem gerar imagem gigante
+
+
+def extrair_texto_documentos(arquivos: list[tuple[str, str]]) -> tuple[str, list[str], list[tuple[str, str]]]:
+    """Recebe lista de (rótulo_do_documento, caminho_pdf) e retorna (texto_combinado,
+    paginas_sem_texto, imagens_paginas_sem_texto).
+
+    pdfplumber só extrai texto que já existe como camada de texto no PDF — não faz
+    OCR. Páginas escaneadas/fotografadas (comuns em anexos e aditivos de contratos
+    maiores) voltam sem texto nenhum, e a informação nem chega no que é enviado ao
+    modelo (aparece como "NÃO LOCALIZADO", mesmo a informação existindo no PDF).
+    Pra essas páginas, renderiza a página como imagem (base64 PNG) — imagens_paginas
+    é (rótulo_da_página, png_base64) — pra enviar ao modelo como imagem: o gpt-4o lê
+    texto em imagem nativamente, então isso funciona como um OCR sem precisar
+    instalar Tesseract/poppler."""
     partes = []
+    paginas_sem_texto = []
+    imagens_paginas = []
     for rotulo, caminho in arquivos:
         with pdfplumber.open(caminho) as pdf:
             for i, pagina in enumerate(pdf.pages, start=1):
                 texto = pagina.extract_text()
                 if texto:
                     partes.append(f"=== {rotulo.upper()} — PÁGINA {i} ===\n{texto}")
-    return "\n\n".join(partes)
+                    continue
+
+                paginas_sem_texto.append(f"{rotulo} p.{i}")
+                buffer = BytesIO()
+                pagina.to_image(resolution=_RESOLUCAO_IMAGEM_PAGINA).original.save(buffer, format="PNG")
+                imagens_paginas.append((f"{rotulo.upper()} — PÁGINA {i}", base64.b64encode(buffer.getvalue()).decode()))
+    return "\n\n".join(partes), paginas_sem_texto, imagens_paginas
 
 
-def _extrair_campos(client, prompt: str, texto: str, colunas: list[tuple[str, str]]) -> dict:
+def _extrair_campos(
+    client, prompt: str, texto: str, imagens_paginas: list[tuple[str, str]], colunas: list[tuple[str, str]]
+) -> dict:
+    conteudo_usuario = [{"type": "text", "text": f"Texto extraído do documento:\n{texto}"}]
+    for rotulo_pagina, imagem_base64 in imagens_paginas:
+        conteudo_usuario.append(
+            {"type": "text", "text": f"Imagem da {rotulo_pagina} (sem texto extraível — leia como imagem):"}
+        )
+        conteudo_usuario.append(
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{imagem_base64}"}}
+        )
+
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=_MODELO_EXTRACAO,
         response_format={"type": "json_object"},
         temperature=0,
         messages=[
             {"role": "system", "content": prompt},
-            {"role": "user", "content": f"Texto extraído do documento:\n{texto}"},
+            {"role": "user", "content": conteudo_usuario},
         ],
     )
     dados = json.loads(response.choices[0].message.content)
@@ -332,22 +391,57 @@ def analisar_documento(rotulo: str, caminho: str, categoria: str = CATEGORIA_SER
     client = _get_client()
 
     _emit("📄 Lendo o documento...")
-    texto = extrair_texto_documentos([(rotulo, caminho)])
+    texto, paginas_sem_texto, imagens_paginas = (
+        _get_executor().submit(extrair_texto_documentos, [(rotulo, caminho)]).result()
+    )
+
+    if paginas_sem_texto:
+        _emit(
+            f"⚠️ {len(paginas_sem_texto)} página(s) sem texto extraível (provável "
+            f"imagem/scan): {', '.join(paginas_sem_texto)}. Enviando essas páginas "
+            "como imagem pro modelo ler diretamente."
+        )
+
+    tokens_aprox = len(texto) // _CHARS_POR_TOKEN_APROX
+    if tokens_aprox > _LIMITE_CONTEXTO_MODELO_TOKENS * 0.7:
+        _emit(
+            f"⚠️ Documento extenso (~{tokens_aprox:,} tokens estimados), perto do "
+            f"limite de contexto do modelo ({_LIMITE_CONTEXTO_MODELO_TOKENS:,} tokens)."
+        )
 
     _emit("🔎 Rodando prompt 1/3 — dados gerais...")
-    dados_gerais = _extrair_campos(client, PROMPT_DADOS_GERAIS, texto, COLUMNS_1)
+    dados_gerais = _extrair_campos(client, PROMPT_DADOS_GERAIS, texto, imagens_paginas, COLUMNS_1)
 
     prompt_vigencias = PROMPT_VIGENCIAS_OBRA_OS if categoria == CATEGORIA_OBRA_OS else PROMPT_VIGENCIAS_SERVICO
     _emit("🔎 Rodando prompt 2/3 — vigências...")
-    dados_vigencias = _extrair_campos(client, prompt_vigencias, texto, COLUMNS_2)
+    dados_vigencias = _extrair_campos(client, prompt_vigencias, texto, imagens_paginas, COLUMNS_2)
 
     _emit("🔎 Rodando prompt 3/3 — pagamentos...")
-    dados_pagamentos = _extrair_campos(client, PROMPT_PAGAMENTOS, texto, COLUMNS_3)
+    dados_pagamentos = _extrair_campos(client, PROMPT_PAGAMENTOS, texto, imagens_paginas, COLUMNS_3)
 
     _emit("🧩 Consolidando resultados...")
     combinado = {**dados_vigencias, **dados_pagamentos, **dados_gerais}
     combinado["categoria_contrato"] = CATEGORIAS[categoria].upper()
     return {chave: combinado.get(chave, NAO_LOCALIZADO) for chave, _ in COLUMNS}
+
+
+def _pid() -> int:
+    return os.getpid()
+
+
+def _demo():
+    """Confirma que o trabalho pesado (extração de PDF) roda num processo separado
+    do processo principal — é essa separação que evita travar outras sessões. Confirma
+    também que extrair_texto_documentos devolve as 3 partes esperadas (texto,
+    páginas sem texto, imagens das páginas sem texto), usadas pelo caminho de OCR
+    via visão do modelo."""
+    pid_worker = _get_executor().submit(_pid).result()
+    assert pid_worker != os.getpid(), "extração deveria rodar em processo separado, não no processo principal"
+
+    texto, paginas_sem_texto, imagens_paginas = extrair_texto_documentos([])
+    assert (texto, paginas_sem_texto, imagens_paginas) == ("", [], [])
+
+    print("ok: extração de PDF roda em processo separado e devolve (texto, páginas_sem_texto, imagens)")
 
 
 def listar_pdfs_zip(tmpdir: str) -> list[tuple[str, str]]:
@@ -361,3 +455,7 @@ def listar_pdfs_zip(tmpdir: str) -> list[tuple[str, str]]:
                 rotulo = os.path.splitext(file)[0]
                 documentos.append((rotulo, os.path.join(root, file)))
     return sorted(documentos, key=lambda item: item[1])
+
+
+if __name__ == "__main__":
+    _demo()

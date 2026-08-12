@@ -6,16 +6,10 @@ from io import BytesIO
 
 from utils.nf import extrair_texto_pdf, analisar_nf
 from utils.logger import registrar_nf
-from utils.auth import logout_button, require_login
 from utils.zipsafe import extrair_upload_zip_seguro
-from utils.config import FAVICON_PATH
-
-st.set_page_config(page_title="Appia Tools", layout="wide", page_icon=FAVICON_PATH)
+from utils.auth import require_login
 
 require_login()
-
-st.logo("Logos/Via Appia/PNG/Via Appia Negativo.png", size="large")
-logout_button()
 
 st.title("📄 Leitor de Notas Fiscais com IA")
 
@@ -30,10 +24,12 @@ def processar_pdfs(caminhos: list[tuple[str, str]]) -> pd.DataFrame:
 
     for i, (nome, caminho) in enumerate(caminhos):
         st.write(f"Processando {i + 1}/{total}: {nome}")
-        texto = extrair_texto_pdf(caminho)
-        if texto:
+        texto, paginas_sem_texto, imagens_paginas = extrair_texto_pdf(caminho)
+        if paginas_sem_texto:
+            st.warning(f"{nome}: {len(paginas_sem_texto)} página(s) sem texto extraível, lendo como imagem.")
+        if texto or imagens_paginas:
             try:
-                dados = analisar_nf(texto)
+                dados = analisar_nf(texto, imagens_paginas)
                 dados["arquivo"] = nome
                 resultados.append(dados)
                 registrar_nf(nome, dados, status="sucesso")
