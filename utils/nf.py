@@ -1,9 +1,11 @@
 import base64
+import multiprocessing
 import os
 import pdfplumber
 import json
 import streamlit as st
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from io import BytesIO
 from openai import OpenAI
 
@@ -15,7 +17,9 @@ Chaves obrigatórias: numero_nota, data_emissao, nome_prestador, valor_bruto, va
 
 # Ver utils/contratos.py: extração de PDF é CPU-bound e, no processo do Streamlit,
 # prende o GIL e trava as outras sessões/usuários numa NF grande. Roda em processo
-# separado pelo mesmo motivo.
+# separado pelo mesmo motivo. mp_context="spawn": ver comentário equivalente em
+# utils/contratos.py — evita cada worker herdar (fork) a memória inteira do processo
+# do Streamlit, que já sozinho pode estourar o limite de memória do container.
 _executor = None
 
 # pdfplumber não faz OCR: página escaneada/imagem volta sem texto. Renderiza essa
@@ -26,8 +30,19 @@ _RESOLUCAO_IMAGEM_PAGINA = 150
 def _get_executor() -> ProcessPoolExecutor:
     global _executor
     if _executor is None:
-        _executor = ProcessPoolExecutor(max_workers=2)
+        _executor = ProcessPoolExecutor(max_workers=2, mp_context=multiprocessing.get_context("spawn"))
     return _executor
+
+
+def _submeter(fn, *args):
+    """Ver utils/contratos.py: se um worker morrer, o pool fica inutilizável até
+    reiniciar o container — recria e tenta mais uma vez."""
+    global _executor
+    try:
+        return _get_executor().submit(fn, *args).result()
+    except BrokenProcessPool:
+        _executor = None
+        return _get_executor().submit(fn, *args).result()
 
 
 def _get_client():
@@ -58,7 +73,7 @@ def _extrair_texto_pdf_worker(path):
 def extrair_texto_pdf(path):
     """Retorna (texto, paginas_sem_texto, imagens_paginas). paginas_sem_texto/imagens_paginas
     cobrem páginas escaneadas/imagem — ver comentário acima de _RESOLUCAO_IMAGEM_PAGINA."""
-    return _get_executor().submit(_extrair_texto_pdf_worker, path).result()
+    return _submeter(_extrair_texto_pdf_worker, path)
 
 
 def analisar_nf(texto, imagens_paginas=None):

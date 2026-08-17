@@ -1,7 +1,9 @@
 import base64
 import json
+import multiprocessing
 import os
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from io import BytesIO
 
 import pdfplumber
@@ -15,14 +17,31 @@ from utils.config import cfg
 # outras sessões/usuários. Rodar num processo separado libera o GIL do processo
 # principal enquanto o PDF é lido. max_workers baixo: é só pra não competir com a
 # CPU da app principal se vários usuários lerem contratos grandes ao mesmo tempo.
+#
+# mp_context="spawn" (não o default "fork"): fork clona a memória inteira do processo
+# do Streamlit (streamlit+pandas+numpy já usam várias centenas de MB) pra cada worker;
+# com limite de memória do container, isso já OOM-matou um worker sozinho. spawn nasce
+# como processo novo e leve, só com os imports que a função do worker realmente usa.
 _executor = None
 
 
 def _get_executor() -> ProcessPoolExecutor:
     global _executor
     if _executor is None:
-        _executor = ProcessPoolExecutor(max_workers=2)
+        _executor = ProcessPoolExecutor(max_workers=2, mp_context=multiprocessing.get_context("spawn"))
     return _executor
+
+
+def _submeter(fn, *args):
+    """Roda fn(*args) no pool de processos. Se um worker morrer (OOM, crash), o pool
+    fica permanentemente inutilizável — recria e tenta mais uma vez, pra um documento
+    que quebrou não travar todo mundo até reiniciar o container."""
+    global _executor
+    try:
+        return _get_executor().submit(fn, *args).result()
+    except BrokenProcessPool:
+        _executor = None
+        return _get_executor().submit(fn, *args).result()
 
 # Cada prompt extrai um subconjunto de campos (pedir todos os campos de uma vez numa
 # só chamada fazia o modelo confundir/misturar informações). Os prompts abaixo
@@ -391,9 +410,7 @@ def analisar_documento(rotulo: str, caminho: str, categoria: str = CATEGORIA_SER
     client = _get_client()
 
     _emit("📄 Lendo o documento...")
-    texto, paginas_sem_texto, imagens_paginas = (
-        _get_executor().submit(extrair_texto_documentos, [(rotulo, caminho)]).result()
-    )
+    texto, paginas_sem_texto, imagens_paginas = _submeter(extrair_texto_documentos, [(rotulo, caminho)])
 
     if paginas_sem_texto:
         _emit(
